@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Seven Game</title>
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            overscroll-behavior: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ===== TOP SECTION (50%) ===== */
+        .top-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+
+        /* Result Display Container */
+        .result-container {
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+        }
+
+        .result-text {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ffffff;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .result-text.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Calculating state with subtle blur */
+        .result-text.calculating {
+            opacity: 0.6;
+            filter: blur(0.5px);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.8; }
+        }
+
+        /* ===== BOTTOM SECTION (50%) ===== */
+        .bottom-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Single Solid Button - No Zone Hints */
+        .play-button {
+            width: 100%;
+            max-width: 700px;
+            height: 90px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .play-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .play-button.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Invisible Overlay for Zone Detection */
+        .click-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: pointer;
+        }
+
+        /* Hidden Stats Display (Secret Mode) */
+        .stats-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 30px;
+        }
+
+        .stats-overlay.visible {
+            display: flex;
+        }
+
+        .stats-content {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .stats-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 1rem;
+        }
+
+        .stats-close {
+            margin-top: 20px;
+            padding: 12px;
+            background: #2a2a2a;
+            border: none;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Mode Indicator (Subtle) */
+        .mode-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2a2a2a;
+            opacity: 0.3;
+            transition: background 0.3s ease;
+        }
+
+        .mode-indicator.random {
+            background: #4a9eff;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 400px) {
+            .title {
+                font-size: 1.2rem;
+            }
+            .result-text {
+                font-size: 1.6rem;
+            }
+            .play-button {
+                height: 80px;
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (min-height: 700px) {
+            .play-button {
+                height: 110px;
+                font-size: 1.6rem;
+            }
+            .result-text {
+                font-size: 2.3rem;
+            }
+        }
+
+        /* Prevent text selection and context menu */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Mode Indicator (Very Subtle) -->
+    <div class="mode-indicator" id="modeIndicator"></div>
+
+    <!-- Top Section: Result Display -->
+    <div class="top-section" id="topSection">
+        <h1 class="title">Seven Up – Seven – Seven Down</h1>
+        <div class="result-container">
+            <div class="result-text" id="resultText"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Section: Play Button -->
+    <div class="bottom-section">
+        <button class="play-button" id="playButton">TAP TO PLAY</button>
+        <div class="click-overlay" id="clickOverlay"></div>
+    </div>
+
+    <!-- Hidden Stats Overlay -->
+    <div class="stats-overlay" id="statsOverlay">
+        <div class="stats-content">
+            <div class="stats-title">Session Statistics</div>
+            <div class="stats-item">
+                <span>Seven Up:</span>
+                <span id="statUp">0</span>
+            </div>
+            <div class="stats-item">
+                <span>Seven:</span>
+                <span id="statSeven">0</span>
+            </div>
+            <div class="stats-item">
+                <span>Seven Down:</span>
+                <span id="statDown">0</span>
+            </div>
+            <div class="stats-item">
+                <span>Total Plays:</span>
+                <span id="statTotal">0</span>
+            </div>
+            <div class="stats-item">
+                <span>Mode:</span>
+                <span id="statMode">Controlled</span>
+            </div>
+            <button class="stats-close" id="statsClose">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== GAME STATE MANAGEMENT =====
+        const GameState = {
+            isProcessing: false,
+            lastTapTime: 0,
+            tapCooldown: 300, // ms - prevents spam analysis
+            randomMode: false,
+            
+            // Session statistics
+            stats: {
+                sevenUp: 0,
+                seven: 0,
+                sevenDown: 0,
+                total: 0
+            },
+            
+            // Secret gesture tracking
+            tapSequence: [],
+            lastResultTapTime: 0
+        };
+
+        // ===== DOM REFERENCES =====
+        const DOM = {
+            topSection: document.getElementById('topSection'),
+            resultText: document.getElementById('resultText'),
+            playButton: document.getElementById('playButton'),
+            clickOverlay: document.getElementById('clickOverlay'),
+            modeIndicator: document.getElementById('modeIndicator'),
+            statsOverlay: document.getElementById('statsOverlay'),
+            statsClose: document.getElementById('statsClose'),
+            statUp: document.getElementById('statUp'),
+            statSeven: document.getElementById('statSeven'),
+            statDown: document.getElementById('statDown'),
+            statTotal: document.getElementById('statTotal'),
+            statMode: document.getElementById('statMode')
+        };
+
+        // ===== CORE GAME LOGIC =====
+        
+        /**
+         * Calculate result based on tap position or random (if mode enabled)
+         * @param {number} clickX - X coordinate of tap
+         * @returns {string} - Result text
+         */
+        function calculateResult(clickX) {
+            if (GameState.randomMode) {
+                // True random mode - ignore position
+                const outcomes = ['Seven Down', 'Seven', 'Seven Up'];
+                return outcomes[Math.floor(Math.random() * 3)];
+            }
+            
+            // Controlled mode - position-based
+            const screenWidth = window.innerWidth;
+            const leftZoneEnd = screenWidth / 3;
+            const rightZoneStart = (screenWidth / 3) * 2;
+            
+            if (clickX < leftZoneEnd) {
+                return 'Seven Down';
+            } else if (clickX > rightZoneStart) {
+                return 'Seven Up';
+            } else {
+                return 'Seven';
+            }
+        }
+
+        /**
+         * Update session statistics
+         * @param {string} result - The result to record
+         */
+        function updateStats(result) {
+            GameState.stats.total++;
+            
+            if (result === 'Seven Up') {
+                GameState.stats.sevenUp++;
+            } else if (result === 'Seven') {
+                GameState.stats.seven++;
+            } else if (result === 'Seven Down') {
+                GameState.stats.sevenDown++;
+            }
+        }
+
+        /**
+         * Display statistics overlay
+         */
+        function showStats() {
+            DOM.statUp.textContent = GameState.stats.sevenUp;
+            DOM.statSeven.textContent = GameState.stats.seven;
+            DOM.statDown.textContent = GameState.stats.sevenDown;
+            DOM.statTotal.textContent = GameState.stats.total;
+            DOM.statMode.textContent = GameState.randomMode ? 'Random' : 'Controlled';
+            DOM.statsOverlay.classList.add('visible');
+        }
+
+        /**
+         * Hide statistics overlay
+         */
+        function hideStats() {
+            DOM.statsOverlay.classList.remove('visible');
+        }
+
+        /**
+         * Toggle random mode
+         */
+        function toggleRandomMode() {
+            GameState.randomMode = !GameState.randomMode;
+            
+            // Update mode indicator (very subtle)
+            if (GameState.randomMode) {
+                DOM.modeIndicator.classList.add('random');
+            } else {
+                DOM.modeIndicator.classList.remove('random');
+            }
+            
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        /**
+         * Reset game to neutral state
+         */
+        function resetGame() {
+            DOM.resultText.classList.remove('visible', 'calculating');
+            DOM.resultText.textContent = '';
+            DOM.playButton.classList.remove('disabled');
+            GameState.isProcessing = false;
+        }
+
+        /**
+         * Main tap processing function
+         * @param {number} clickX - X coordinate
+         * @param {number} clickY - Y coordinate
+         */
+        function processTap(clickX, clickY) {
+            const now = Date.now();
+            
+            // Enforce tap cooldown (anti-spam)
+            if (now - GameState.lastTapTime < GameState.tapCooldown) {
+                return;
+            }
+            
+            // Prevent processing if already running
+            if (GameState.isProcessing) {
+                return;
+            }
+            
+            GameState.isProcessing = true;
+            GameState.lastTapTime = now;
+            
+            // Disable button
+            DOM.playButton.classList.add('disabled');
+            
+            // Calculate result
+            const result = calculateResult(clickX);
+            
+            // Update statistics
+            updateStats(result);
+            
+            // Show "Calculating..." with blur effect
+            DOM.resultText.textContent = 'Calculating...';
+            DOM.resultText.classList.add('visible', 'calculating');
+            
+            // Play subtle sound
+            playSound();
+            
+            // Randomized delay (600-900ms) for realism
+            const delay = 600 + Math.random() * 300;
+            
+            setTimeout(() => {
+                // Remove calculating state
+                DOM.resultText.classList.remove('calculating');
+                
+                // Show result with slight variance in timing (stealth)
+                requestAnimationFrame(() => {
+                    DOM.resultText.textContent = result;
+                    
+                    // Add micro-variance in opacity for stealth (0.95-1.0)
+                    const variance = 0.95 + Math.random() * 0.05;
+                    DOM.resultText.style.opacity = variance;
+                });
+                
+                // Auto-reset after 2-3 seconds (randomized)
+                const resetDelay = 2000 + Math.random() * 1000;
+                setTimeout(resetGame, resetDelay);
+                
+            }, delay);
+        }
+
+        /**
+         * Play subtle click sound
+         */
+        function playSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Subtle tone with slight randomization
+                oscillator.frequency.value = 450 + Math.random() * 100;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.08, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.12);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.12);
+            } catch (e) {
+                // Fail silently
+            }
+        }
+
+        // ===== SECRET GESTURE HANDLERS =====
+        
+        /**
+         * Handle triple-tap on top section (toggle random mode)
+         */
+        DOM.topSection.addEventListener('click', function(e) {
+            const now = Date.now();
+            
+            // Track tap sequence
+            GameState.tapSequence.push(now);
+            
+            // Keep only last 3 taps
+            if (GameState.tapSequence.length > 3) {
+                GameState.tapSequence.shift();
+            }
+            
+            // Check if last 3 taps within 1 second
+            if (GameState.tapSequence.length === 3) {
+                const timeDiff = GameState.tapSequence[2] - GameState.tapSequence[0];
+                if (timeDiff < 1000) {
+                    toggleRandomMode();
+                    GameState.tapSequence = [];
+                }
+            }
+        });
+
+        /**
+         * Handle long-press on result text (show stats)
+         */
+        let longPressTimer;
+        
+        DOM.resultText.addEventListener('touchstart', function(e) {
+            longPressTimer = setTimeout(() => {
+                showStats();
+            }, 800); // 800ms long press
+        }, { passive: true });
+        
+        DOM.resultText.addEventListener('touchend', function(e) {
+            clearTimeout(longPressTimer);
+        }, { passive: true });
+        
+        DOM.resultText.addEventListener('touchmove', function(e) {
+            clearTimeout(longPressTimer);
+        }, { passive: true });
+
+        // Stats close button
+        DOM.statsClose.addEventListener('click', hideStats);
+        DOM.statsOverlay.addEventListener('click', function(e) {
+            if (e.target === DOM.statsOverlay) {
+                hideStats();
+            }
+        });
+
+        // ===== EVENT LISTENERS =====
+        
+        /**
+         * Handle touch events (primary for mobile)
+         */
+        DOM.clickOverlay.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                processTap(touch.clientX, touch.clientY);
+            }
+        }, { passive: false });
+
+        /**
+         * Handle click events (fallback for desktop)
+         */
+        DOM.clickOverlay.addEventListener('click', function(e) {
+            processTap(e.clientX, e.clientY);
+        });
+
+        // ===== PREVENT UNWANTED BEHAVIORS =====
+        
+        // Prevent context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Prevent text selection
+        document.addEventListener('selectstart', e => e.preventDefault());
+        
+        // Prevent double-tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(e) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // Prevent pinch zoom
+        document.addEventListener('gesturestart', e => e.preventDefault());
+        document.addEventListener('gesturechange', e => e.preventDefault());
+        document.addEventListener('gestureend', e => e.preventDefault());
+
+        // ===== ORIENTATION LOCK HINT (Best Effort) =====
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('portrait').catch(() => {
+                // Silently fail - not all browsers support this
+            });
+        }
+
+        // ===== PERFORMANCE OPTIMIZATION =====
+        // Use passive listeners where appropriate for better scroll performance
+        // Already implemented above with { passive: true }
+
+        // ===== INITIALIZATION =====
+        console.log('%c🎮 Seven Game Loaded', 'color: #4a9eff; font-size: 14px; font-weight: bold;');
+        console.log('%cSecret Commands:', 'color: #888; font-size: 12px;');
+        console.log('%c- Triple-tap title area: Toggle Random Mode', 'color: #666; font-size: 11px;');
+        console.log('%c- Long-press result: View Statistics', 'color: #666; font-size: 11px;');
+    </script>
+</body>
+</html>
